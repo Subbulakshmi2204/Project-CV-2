@@ -3,57 +3,73 @@ import cv2
 import numpy as np
 from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-st.title("🐾 AI Virtual Pet Interaction")
+st.title("📚 Interactive AR Educational System")
+st.write("Show a **triangle, square, or circle card** to the camera to see educational information.")
 
-class PetTracker(VideoTransformerBase):
+class ShapeAR(VideoTransformerBase):
 
-    def __init__(self):
-        self.pet_x = 300
-        self.pet_y = 300
+    def detect_shape(self, contour):
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.04 * peri, True)
+        sides = len(approx)
+
+        if sides == 3:
+            return "Triangle"
+        elif sides == 4:
+            return "Square"
+        elif sides > 6:
+            return "Circle"
+        else:
+            return "Unknown"
 
     def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
 
+        img = frame.to_ndarray(format="bgr24")
         img = cv2.flip(img, 1)
 
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray,(5,5),0)
 
-        lower_blue = np.array([100,150,50])
-        upper_blue = np.array([140,255,255])
+        _, thresh = cv2.threshold(blur, 60,255,cv2.THRESH_BINARY)
 
-        mask = cv2.inRange(hsv, lower_blue, upper_blue)
+        contours,_ = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 
-        mask = cv2.GaussianBlur(mask,(5,5),0)
+        for c in contours:
 
-        contours,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            if cv2.contourArea(c) < 2000:
+                continue
 
-        if len(contours) > 0:
+            shape = self.detect_shape(c)
 
-            c = max(contours, key=cv2.contourArea)
+            M = cv2.moments(c)
 
-            if cv2.contourArea(c) > 1000:
+            if M["m00"] == 0:
+                continue
 
-                M = cv2.moments(c)
+            cx = int(M["m10"]/M["m00"])
+            cy = int(M["m01"]/M["m00"])
 
-                if M["m00"] != 0:
+            cv2.drawContours(img,[c],-1,(0,255,0),3)
 
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
+            text = ""
 
-                    cv2.circle(img,(cx,cy),10,(0,255,0),-1)
+            if shape == "Triangle":
+                text = "Triangle: Area = 1/2 * base * height"
+            elif shape == "Square":
+                text = "Square: Area = side^2"
+            elif shape == "Circle":
+                text = "Circle: Area = π r^2"
 
-                    self.pet_x = int(self.pet_x + (cx - self.pet_x) * 0.1)
-                    self.pet_y = int(self.pet_y + (cy - self.pet_y) * 0.1)
+            cv2.putText(img,shape,(cx-50,cy),
+                        cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,0,0),2)
 
-        cv2.circle(img,(self.pet_x,self.pet_y),30,(0,0,255),-1)
-
-        cv2.putText(img,"Virtual Pet",(self.pet_x-40,self.pet_y-40),
-                    cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,255,255),2)
+            cv2.putText(img,text,(30,40),
+                        cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,0,255),2)
 
         return img
 
 
 webrtc_streamer(
-    key="pet-tracker",
-    video_transformer_factory=PetTracker
+    key="ar-education",
+    video_transformer_factory=ShapeAR
 )
