@@ -1,22 +1,17 @@
-# Interactive AR Educational System
+# Virtual Glasses Try-On (Augmented Reality)
 
-This project demonstrates an **Augmented Reality educational tool using OpenCV and Streamlit**.
+This project demonstrates a simple **Augmented Reality face filter** using OpenCV and Streamlit.
 
-Students can show geometric shape cards to the camera and the system displays educational formulas in real time.
+Users can try virtual glasses using their webcam.
 
 ## Features
-- Real-time webcam processing
-- Contour detection
-- Shape recognition
-- AR educational overlay
 
-## Technologies
-- Python
-- OpenCV
-- Streamlit
-- Computer Vision
+- Real-time face detection
+- AR overlay glasses
+- Webcam streaming using WebRTC
 
 ## Run Locally
 
 pip install -r requirements.txt
+
 streamlit run app.py
