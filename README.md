@@ -1,33 +1,22 @@
-# AI Virtual Pet Interaction System
+# Interactive AR Educational System
 
-This project demonstrates **real-time interaction with a virtual pet using computer vision**.
+This project demonstrates an **Augmented Reality educational tool using OpenCV and Streamlit**.
 
-The system detects a colored object using:
-- Image Filtering
-- Contour Detection
-- Image Moments
+Students can show geometric shape cards to the camera and the system displays educational formulas in real time.
 
-The pet follows the detected object in real time.
+## Features
+- Real-time webcam processing
+- Contour detection
+- Shape recognition
+- AR educational overlay
 
-## Technologies Used
-
+## Technologies
 - Python
 - OpenCV
 - Streamlit
-- NumPy
-
-## Features
-
-- Real-time webcam processing
-- Contour detection
-- AR-like virtual pet interaction
+- Computer Vision
 
 ## Run Locally
 
-Install dependencies
-
 pip install -r requirements.txt
-
-Run the app
-
 streamlit run app.py
