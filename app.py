@@ -3,59 +3,57 @@ import cv2
 import numpy as np
 from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-st.title("🕶️ Virtual Glasses Try-On (AR)")
-st.write("Look at the camera and try virtual glasses.")
+st.title("🎨 Air Canvas - Hand Gesture Drawing")
+st.write("Use a **blue object or marker** to draw in the air!")
 
-# Load face detection model
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-)
+class AirCanvas(VideoTransformerBase):
 
-# Load glasses image with alpha channel
-glasses = cv2.imread("assets/glasses.png", cv2.IMREAD_UNCHANGED)
-
-class GlassesFilter(VideoTransformerBase):
+    def __init__(self):
+        self.points = []
+        self.color = (255, 0, 0)
 
     def transform(self, frame):
 
         img = frame.to_ndarray(format="bgr24")
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.flip(img,1)
 
-        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        for (x, y, w, h) in faces:
+        lower_blue = np.array([100,150,50])
+        upper_blue = np.array([140,255,255])
 
-            # Resize glasses
-            new_width = w
-            new_height = int(glasses.shape[0] * (new_width / glasses.shape[1]))
+        mask = cv2.inRange(hsv, lower_blue, upper_blue)
+        mask = cv2.GaussianBlur(mask,(5,5),0)
 
-            resized_glasses = cv2.resize(glasses, (new_width, new_height))
+        contours,_ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            # Position glasses slightly below forehead
-            y1 = y + int(h * 0.3)
-            y2 = y1 + new_height
-            x1 = x
-            x2 = x + new_width
+        if contours:
 
-            # Check frame boundaries
-            if y2 > img.shape[0] or x2 > img.shape[1]:
-                continue
+            c = max(contours, key=cv2.contourArea)
 
-            # Separate alpha and color channels
-            alpha = resized_glasses[:, :, 3] / 255.0
-            color = resized_glasses[:, :, :3]
+            if cv2.contourArea(c) > 1000:
 
-            # Overlay glasses using alpha blending
-            for c in range(3):
-                img[y1:y2, x1:x2, c] = (
-                    alpha * color[:, :, c] +
-                    (1 - alpha) * img[y1:y2, x1:x2, c]
-                )
+                M = cv2.moments(c)
+
+                if M["m00"] != 0:
+
+                    cx = int(M["m10"]/M["m00"])
+                    cy = int(M["m01"]/M["m00"])
+
+                    self.points.append((cx,cy))
+
+                    cv2.circle(img,(cx,cy),10,(0,255,0),-1)
+
+        for i in range(1,len(self.points)):
+            cv2.line(img,self.points[i-1],self.points[i],self.color,5)
+
+        cv2.putText(img,"Draw with blue object",(20,40),
+                    cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
 
         return img
 
 
 webrtc_streamer(
-    key="glasses-filter",
-    video_transformer_factory=GlassesFilter
+    key="air-canvas",
+    video_transformer_factory=AirCanvas
 )
