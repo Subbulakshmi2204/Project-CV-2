@@ -1,64 +1,59 @@
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-st.set_page_config(page_title="AI Virtual Pet Interaction", layout="wide")
+st.title("🐾 AI Virtual Pet Interaction")
 
-st.title("🐾 AI Virtual Pet Interaction System")
-st.write("Move a **blue colored object** in front of your webcam and the virtual pet will follow it.")
+class PetTracker(VideoTransformerBase):
 
-run = st.checkbox("Start Camera")
+    def __init__(self):
+        self.pet_x = 300
+        self.pet_y = 300
 
-FRAME_WINDOW = st.image([])
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
 
-cap = cv2.VideoCapture(0)
+        img = cv2.flip(img, 1)
 
-pet_x, pet_y = 300, 300
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-while run:
-    ret, frame = cap.read()
+        lower_blue = np.array([100,150,50])
+        upper_blue = np.array([140,255,255])
 
-    if not ret:
-        st.write("Camera not working")
-        break
+        mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    frame = cv2.flip(frame, 1)
+        mask = cv2.GaussianBlur(mask,(5,5),0)
 
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        contours,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    lower_blue = np.array([100,150,50])
-    upper_blue = np.array([140,255,255])
+        if len(contours) > 0:
 
-    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+            c = max(contours, key=cv2.contourArea)
 
-    mask = cv2.GaussianBlur(mask,(5,5),0)
+            if cv2.contourArea(c) > 1000:
 
-    contours,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                M = cv2.moments(c)
 
-    if len(contours) > 0:
+                if M["m00"] != 0:
 
-        c = max(contours, key=cv2.contourArea)
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
 
-        if cv2.contourArea(c) > 1000:
+                    cv2.circle(img,(cx,cy),10,(0,255,0),-1)
 
-            M = cv2.moments(c)
+                    self.pet_x = int(self.pet_x + (cx - self.pet_x) * 0.1)
+                    self.pet_y = int(self.pet_y + (cy - self.pet_y) * 0.1)
 
-            if M["m00"] != 0:
+        cv2.circle(img,(self.pet_x,self.pet_y),30,(0,0,255),-1)
 
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
+        cv2.putText(img,"Virtual Pet",(self.pet_x-40,self.pet_y-40),
+                    cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,255,255),2)
 
-                cv2.circle(frame,(cx,cy),10,(0,255,0),-1)
+        return img
 
-                pet_x = int(pet_x + (cx - pet_x) * 0.1)
-                pet_y = int(pet_y + (cy - pet_y) * 0.1)
 
-    cv2.circle(frame,(pet_x,pet_y),30,(0,0,255),-1)
-
-    cv2.putText(frame,"Virtual Pet",(pet_x-40,pet_y-40),
-                cv2.FONT_HERSHEY_SIMPLEX,0.7,(255,255,255),2)
-
-    FRAME_WINDOW.image(frame, channels="BGR")
-
-cap.release()
+webrtc_streamer(
+    key="pet-tracker",
+    video_transformer_factory=PetTracker
+)
